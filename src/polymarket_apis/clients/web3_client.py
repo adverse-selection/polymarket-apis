@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from json import dumps, load
 from pathlib import Path
@@ -19,7 +20,7 @@ from ..types.common import EthAddress, Keccak256
 from ..types.web3_types import TransactionReceipt
 from ..utilities.config import get_contract_config
 from ..utilities.constants import ADDRESS_ZERO, HASH_ZERO, POLYGON
-from ..utilities.exceptions import SafeAlreadyDeployedError
+from ..utilities.exceptions import BuilderRateLimitError, SafeAlreadyDeployedError
 from ..utilities.headers import create_level_2_headers
 from ..utilities.signing.signer import Signer
 from ..utilities.web3.abis.custom_contract_errors import CUSTOM_ERROR_DICT
@@ -44,6 +45,12 @@ def _load_abi(contract_name: str) -> list:
     with Path.open(abi_path) as f:
         return load(f)
 
+def _parse_reset_seconds(error_message: str) -> int:
+    m = re.search(r"resets in\s+(\d+)\s+seconds", error_message)
+    if not m:
+        msg = f"Could not parse reset seconds from: {error_message}"
+        raise ValueError(msg)
+    return int(m.group(1))
 
 class BaseWeb3Client(ABC):
     """
@@ -682,7 +689,8 @@ class PolymarketGaslessWeb3Client(BaseWeb3Client):
         self.sign_url = "https://builder-signing-server.vercel.app/sign"
         self.relay_hub = "0xD216153c06E857cD7f72665E0aF1d7D82172F494"
         self.relay_address = "0x7db63fe6d62eb73fb01f8009416f4c2bb4fbda6a"
-        self.builder_creds = builder_creds or None
+        self.builder_creds = builder_creds if builder_creds else None
+
 
     def _execute(
         self,
@@ -722,10 +730,28 @@ class PolymarketGaslessWeb3Client(BaseWeb3Client):
             )
 
         url = f"{self.relay_url}/submit"
-        response = self.client.post(
-            url, headers=headers, content=dumps(body).encode("utf-8")
-        )
-        response.raise_for_status()
+        try:
+            response = self.client.post(
+                url, headers=headers, content=dumps(body).encode("utf-8")
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            resp = e.response
+            if resp is not None and resp.status_code == 429 and not self.builder_creds:
+                data = resp.json()
+                if isinstance(data, dict) and "error" in data:
+                    api_msg: str = data["error"]
+                    reset_seconds = _parse_reset_seconds(api_msg)
+                    msg = (
+                        f"Shared builder credentials quota has been exhausted and resets in "
+                        f"{reset_seconds} seconds. "
+                        "Create your own builder credentials and pass them via builder_creds in "
+                        "PolymarketGaslessWeb3Client for higher, isolated limits."
+                    )
+                    raise BuilderRateLimitError(msg) from e
+                msg = f"Unexpected 429 response body: {data}"
+                raise ValueError(msg) from e
+            raise
 
         gasless_response = response.json()
 

@@ -24,3 +24,7 @@ class AuthenticationRequiredError(ValueError):
 
 class SafeAlreadyDeployedError(Exception):
     """Raised when attempting to deploy a Safe that has already been deployed."""
+
+class BuilderRateLimitError(Exception):
+    """Shared builder credentials have hit their rate limit."""
+
