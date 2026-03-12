@@ -331,7 +331,9 @@ class OrderSummary(BaseModel):
 class PriceLevel(OrderSummary):
     side: Literal["BUY", "SELL"]
 
+
 TickSize = Literal["0.1", "0.01", "0.001", "0.0001"]
+
 
 class OrderBookSummary(BaseModel):
     condition_id: Keccak256 = Field(alias="market")
@@ -346,7 +348,9 @@ class OrderBookSummary(BaseModel):
     neg_risk: Optional[bool] = None
 
     @field_validator("last_trade_price", mode="before")
-    def handle_empty_last_trade_price(cls, v: Optional[float] | Literal[""]) -> Optional[float]:
+    def handle_empty_last_trade_price(
+        cls, v: Optional[float] | Literal[""]
+    ) -> Optional[float]:
         if v == "":
             return None
         return v
@@ -365,6 +369,13 @@ class OrderBookSummary(BaseModel):
     def serialize_timestamp(self, ts: datetime) -> str:
         # Convert to millisecond timestamp string without decimal places
         return str(int(ts.timestamp() * 1000))
+
+
+class OrderBookHistoryResponse(BaseModel):
+    """Order book snapshots returned by the `/orderbook-history` endpoint."""
+
+    count: int
+    data: list[OrderBookSummary]
 
 
 class AssetType(StrEnum):
@@ -532,6 +543,3 @@ class PastResultsData(BaseModel):
 
 class PastResultsResponse(BaseModel):
     data: PastResultsData
-
-
-

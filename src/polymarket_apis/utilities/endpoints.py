@@ -23,6 +23,7 @@ ORDERS = "/data/orders"
 # Order Books
 GET_ORDER_BOOK = "/book"
 GET_ORDER_BOOKS = "/books"
+GET_ORDER_BOOK_HISTORY = "/orderbook-history"
 
 # Pricing
 MID_POINT = "/midpoint"

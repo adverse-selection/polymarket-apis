@@ -109,6 +109,7 @@ class PolymarketGammaClient:
         offset: int | None = None,
         order: str | None = None,
         ascending: bool = True,
+        include_tag: bool | None = None,
         archived: bool | None = None,
         active: bool | None = None,
         closed: bool | None = None,
@@ -135,6 +136,8 @@ class PolymarketGammaClient:
         if order:
             params["order"] = order
             params["ascending"] = ascending
+        if include_tag is not None:
+            params["include_tag"] = include_tag
         if slugs:
             params["slug"] = slugs
         if archived is not None:

@@ -21,6 +21,7 @@ from ..types.clob_types import (
     Midpoint,
     OpenOrder,
     OrderArgs,
+    OrderBookHistoryResponse,
     OrderBookSummary,
     OrderCancelResponse,
     OrderPostResponse,
@@ -60,6 +61,7 @@ from ..utilities.endpoints import (
     GET_MARKETS,
     GET_NEG_RISK,
     GET_ORDER_BOOK,
+    GET_ORDER_BOOK_HISTORY,
     GET_ORDER_BOOKS,
     GET_PRICES,
     GET_READONLY_API_KEYS,
@@ -258,6 +260,26 @@ class PolymarketReadOnlyClobClient:
         response.raise_for_status()
         return [OrderBookSummary(**obs) for obs in response.json()]
 
+    def get_order_book_history(
+        self,
+        asset_id: str,
+        start_time: datetime,
+        end_time: datetime | None = None,
+    ) -> OrderBookHistoryResponse:
+        """Get historical order book snapshots for an asset in a datetime range."""
+        params: dict[str, str | int] = {
+            "asset_id": asset_id,
+            "startTs": int(start_time.timestamp()),
+        }
+        if end_time is not None:
+            params["endTs"] = int(end_time.timestamp())
+
+        response = self.client.get(
+            self._build_url(GET_ORDER_BOOK_HISTORY), params=params
+        )
+        response.raise_for_status()
+        return OrderBookHistoryResponse(**response.json())
+
     async def get_order_books_async(
         self, token_ids: list[str]
     ) -> list[OrderBookSummary]:
@@ -399,6 +421,7 @@ class PolymarketReadOnlyClobClient:
     ) -> None:
         self.client.close()
         await self.async_client.aclose()
+
 
 class PolymarketClobClient(PolymarketReadOnlyClobClient):
     def __init__(
